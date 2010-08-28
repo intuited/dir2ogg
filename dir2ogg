@@ -109,7 +109,21 @@ def read_opts():
     parser.add_option('-o', '--output-dir', metavar='DIR', help='Converted files will be placed in DIR. Default : same directory as original file')
     parser.add_option('-s', '--strip', metavar='STRIP', action='store', help="Strip leading directories from converted file path. STRIP can be a number, a string, or 'auto'. See man page for details.")
 
-    # Setup decoders
+    # Setup encoders and decoders
+    def add_command_options(parser, commands, arg_format, help_format):
+        """Utility function to add both encoder and decoder commands to the parser."""
+        for extension, executables in commands:
+            default, choices = None, []
+            for command in executables:
+                in_path = [prefix for prefix in os.environ['PATH'].split(os.pathsep) if os.path.exists(os.path.join(prefix, command))]
+                if in_path:
+                    choices.append(command)
+                    default = default or command
+            parser.add_option(arg_format % extension,
+                              type="choice",
+                              metavar=default, default=default, choices=choices,
+                              help=help_format % (extension, ', '.join(choices)))
+
     commands = {'mp3': ('mpg123', 'mpg321', 'lame',  'mplayer'),
         'wma': ('mplayer',),
         'm4a': ('faad', 'mplayer'),
@@ -121,16 +135,16 @@ def read_opts():
         'tta': ('ttaenc', 'mplayer'),
         }
 
-    for ext, dec in commands.items():
-        default, choices = None, []
-        for command in dec:
-            in_path = [prefix for prefix in os.environ['PATH'].split(os.pathsep) if os.path.exists(os.path.join(prefix, command))]
-            if in_path:
-                choices.append(command)
-                default = default or command
-        parser.add_option('--' + ext + '-decoder', type="choice", metavar=default, default=default, choices=choices, help="decoder for %s files (choices: %s)" % (ext, ', '.join(choices)))
+    encode_commands = (
+        ('ogg', ('oggenc',)),
+        ('mp3', ('lame',)),
+        )
 
+    add_command_options(parser, commands.items(), '--%s-decoder', "decoder for %s files (choices: %s)")
+    add_command_options(parser, encode_commands, '--%s-encoder', "encoder for %s files (choices: %s)")
     # End of decoder options
+
+
     options, args = parser.parse_args()
 
     options.convert_cd = options.cdda
